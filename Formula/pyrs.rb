@@ -1,11 +1,21 @@
 class Pyrs < Formula
   desc "Python interpreter in Rust targeting CPython 3.14 compatibility"
   homepage "https://github.com/BlueBlazin/pyrs"
-  url "https://github.com/BlueBlazin/pyrs/archive/refs/tags/v0.4.1.tar.gz"
-  sha256 "dbc59a9265c59cb091b3a1878b7d14cd587b586e950800e6044d9d982161af15"
-  head "https://github.com/BlueBlazin/pyrs.git", branch: "master"
+  version "0.4.2"
 
-  depends_on "rust" => :build
+  on_macos do
+    on_arm do
+      url "https://github.com/BlueBlazin/pyrs/releases/download/v0.4.2/pyrs-v0.4.2-aarch64-apple-darwin.tar.gz"
+      sha256 "6d56a9d990464c38c6a24378ca470d227c1fecbaa884c4a0bb456efa535cc8ef"
+    end
+
+    on_intel do
+      url "https://github.com/BlueBlazin/pyrs/releases/download/v0.4.2/pyrs-v0.4.2-x86_64-apple-darwin.tar.gz"
+      sha256 "9a3b326df430a0c6348f595913af3bd257ee17bc6d40ceb91a08fc5b6afb18c0"
+    end
+  end
+
+  head "https://github.com/BlueBlazin/pyrs.git", branch: "master"
 
   resource "cpython-stdlib-3.14.3" do
     url "https://www.python.org/ftp/python/3.14.3/Python-3.14.3.tgz"
@@ -13,11 +23,29 @@ class Pyrs < Formula
   end
 
   def install
-    system "cargo", "install", *std_cargo_args(path: "."), "--locked"
+    odie "pyrs Homebrew installs currently support macOS only" unless OS.mac?
+
+    if build.head?
+      nightly_url = "https://github.com/BlueBlazin/pyrs/releases/download/nightly/#{nightly_archive_name}"
+      system "curl", "-fsSL", nightly_url, "-o", "pyrs-nightly.tar.gz"
+      system "tar", "-xzf", "pyrs-nightly.tar.gz"
+    end
+
+    bin.install "pyrs"
     (share/"pyrs/stdlib/3.14.3").mkpath
     resource("cpython-stdlib-3.14.3").stage do
       cp_r "Lib", share/"pyrs/stdlib/3.14.3/Lib"
       cp "LICENSE", share/"pyrs/stdlib/3.14.3/LICENSE"
+    end
+  end
+
+  def nightly_archive_name
+    if Hardware::CPU.arm?
+      "pyrs-nightly-aarch64-apple-darwin.tar.gz"
+    elsif Hardware::CPU.intel?
+      "pyrs-nightly-x86_64-apple-darwin.tar.gz"
+    else
+      odie "Unsupported macOS CPU architecture"
     end
   end
 
